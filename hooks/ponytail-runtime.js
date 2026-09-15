@@ -4,6 +4,7 @@ const os = require('os');
 const { getClaudeDir, getConfigDir } = require('./ponytail-config');
 
 const STATE_FILE = '.ponytail-active';
+const MODEL_FILE = '.ponytail-model';
 
 // ponytail: VS Code Copilot never sets COPILOT_PLUGIN_DATA — it only injects
 // CLAUDE_PLUGIN_ROOT, pointed at an install path under .vscode/agent-plugins/
@@ -37,6 +38,7 @@ if (isQoder) stateDir = path.join(os.homedir(), '.qoder');
 if (isCursor) stateDir = path.join(os.homedir(), '.cursor');
 
 const statePath = path.join(stateDir, STATE_FILE);
+const modelPath = path.join(stateDir, MODEL_FILE);
 
 function setMode(mode) {
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
@@ -45,6 +47,23 @@ function setMode(mode) {
 
 function clearMode() {
   try { fs.unlinkSync(statePath); } catch (e) {}
+}
+
+function setModel(model) {
+  fs.mkdirSync(path.dirname(modelPath), { recursive: true });
+  fs.writeFileSync(modelPath, model);
+}
+
+function clearModel() {
+  try { fs.unlinkSync(modelPath); } catch (e) {}
+}
+
+function readModel() {
+  try {
+    return fs.readFileSync(modelPath, 'utf8').trim() || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // Live mode written by activate/mode-tracker. Absent flag = ponytail off.
@@ -132,6 +151,7 @@ function writeHookOutput(event, mode, context = '') {
 
 module.exports = {
   clearMode,
+  clearModel,
   cursorRuleNotice,
   cursorRulePath,
   isCodex,
@@ -139,6 +159,8 @@ module.exports = {
   isCursor,
   isQoder,
   readMode,
+  readModel,
+  setModel,
   setMode,
   writeHookOutput,
 };

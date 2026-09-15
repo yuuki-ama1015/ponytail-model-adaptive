@@ -7,6 +7,15 @@ const { DEFAULT_MODE, normalizeMode, normalizePersistedMode } = require('./ponyt
 
 const INDEPENDENT_MODES = new Set(['review']);
 const SKILL_PATH = path.join(__dirname, '..', 'skills', 'ponytail', 'SKILL.md');
+const ASTRA_SKILL_PATH = path.join(__dirname, '..', 'skills', 'ponytail', 'references', 'astra.md');
+
+function isAstraModel(model) {
+  return typeof model === 'string' && /^(?:astra|gpt-6-astra(?:$|[-:]))/i.test(model.trim());
+}
+
+function instructionVariant(model) {
+  return isAstraModel(model) ? 'astra' : 'legacy';
+}
 
 function filterSkillBodyForMode(body, mode) {
   const effectiveMode = normalizeMode(mode) || DEFAULT_MODE;
@@ -74,7 +83,7 @@ function getFallbackInstructions(mode) {
     'Ponytail governs what you build, not how you talk. "stop ponytail" or "normal mode": revert. Level persists until changed or session end.';
 }
 
-function getPonytailInstructions(mode) {
+function getPonytailInstructions(mode, model) {
   const configuredMode = normalizePersistedMode(mode) || DEFAULT_MODE;
 
   if (INDEPENDENT_MODES.has(configuredMode)) {
@@ -82,10 +91,11 @@ function getPonytailInstructions(mode) {
   }
 
   const effectiveMode = normalizeMode(configuredMode) || DEFAULT_MODE;
+  const skillPath = isAstraModel(model) ? ASTRA_SKILL_PATH : SKILL_PATH;
 
   try {
     return 'PONYTAIL MODE ACTIVE — level: ' + effectiveMode + '\n\n' +
-      filterSkillBodyForMode(fs.readFileSync(SKILL_PATH, 'utf8'), effectiveMode);
+      filterSkillBodyForMode(fs.readFileSync(skillPath, 'utf8'), effectiveMode);
   } catch (e) {
     return getFallbackInstructions(effectiveMode);
   }
@@ -95,4 +105,6 @@ module.exports = {
   filterSkillBodyForMode,
   getFallbackInstructions,
   getPonytailInstructions,
+  instructionVariant,
+  isAstraModel,
 };

@@ -5,15 +5,18 @@
 const { getDefaultMode, isDeactivationCommand, writeDefaultMode } = require('./ponytail-config');
 const {
   clearMode,
+  clearModel,
   cursorRuleNotice,
   cursorRulePath,
   isCursor,
   isQoder,
+  readModel,
   readMode,
+  setModel,
   setMode,
   writeHookOutput,
 } = require('./ponytail-runtime');
-const { getPonytailInstructions } = require('./ponytail-instructions');
+const { getPonytailInstructions, instructionVariant } = require('./ponytail-instructions');
 
 let input = '';
 let done = false;
@@ -25,6 +28,14 @@ function finish() {
     // Strip UTF-8 BOM some shells prepend when piping (breaks JSON.parse)
     const data = JSON.parse(input.replace(/^\uFEFF/, ''));
     const prompt = (data.prompt || '').trim().toLowerCase();
+    const model = data.model || data.model_name || data.modelName || null;
+    const storedModel = readModel();
+    const selectedModel = model || storedModel;
+    const modelVariant = model ? instructionVariant(model) : storedModel;
+    const modelSwitched = Boolean(model && modelVariant !== storedModel);
+    if (modelSwitched) {
+      try { setModel(modelVariant); } catch (e) {}
+    }
 
     // Cursor with the always-on rule in the workspace: no hook can change or
     // switch off a rule, so answer the command with the notice instead of
@@ -85,22 +96,9 @@ function finish() {
       } else if (mode && mode !== 'off') {
         setMode(mode);
         modeSwitched = true;
-        // ponytail: Qoder needs the full ruleset every turn, so when a mode
-        // switch happens we fold the confirmation into the ruleset output
-        // below (one JSON on stdout) instead of emitting two separate writes.
-        if (!isQoder) {
-          // Cursor has no /ponytail command that would load the skill body
-          // for the new level, so the tracker delivers that level's ruleset
-          // along with the confirmation (#817).
-          const header = 'PONYTAIL MODE CHANGED — level: ' + mode;
-          writeHookOutput(
-            'UserPromptSubmit',
-            mode,
-            isCursor ? header + '\n\n' + getPonytailInstructions(mode) : header,
-          );
-        }
       } else if (mode === 'off') {
         clearMode();
+        clearModel();
         deactivated = true;
         writeHookOutput('UserPromptSubmit', 'off', 'PONYTAIL MODE OFF');
       }
@@ -109,8 +107,22 @@ function finish() {
     // Detect deactivation
     if (!modeSwitched && !deactivated && isDeactivationCommand(prompt)) {
       clearMode();
+      clearModel();
       deactivated = true;
       writeHookOutput('UserPromptSubmit', 'off', 'PONYTAIL MODE OFF');
+    }
+
+    if (!isQoder && !deactivated && (modeSwitched || modelSwitched)) {
+      const currentMode = readMode() || getDefaultMode();
+      if (currentMode !== 'off') {
+        const headers = [];
+        if (modelSwitched) headers.push('PONYTAIL MODEL CHANGED — variant: ' + modelVariant);
+        if (modeSwitched) headers.push('PONYTAIL MODE CHANGED — level: ' + currentMode);
+        const context = (modelSwitched || isCursor)
+          ? headers.join('\n') + '\n\n' + getPonytailInstructions(currentMode, selectedModel)
+          : headers.join('\n');
+        writeHookOutput('UserPromptSubmit', currentMode, context);
+      }
     }
 
     // Qoder has no SessionStart event, so UserPromptSubmit does double duty:
@@ -130,10 +142,11 @@ function finish() {
       if (currentMode && currentMode !== 'off') {
         // ponytail: one JSON per invocation — mode-switch confirmation is
         // folded into the ruleset header so Qoder gets both in one write.
-        const header = modeSwitched
-          ? 'PONYTAIL MODE CHANGED — level: ' + currentMode + '\n\n'
-          : '';
-        writeHookOutput('UserPromptSubmit', currentMode, header + getPonytailInstructions(currentMode));
+        const headers = [];
+        if (modelSwitched) headers.push('PONYTAIL MODEL CHANGED — variant: ' + modelVariant);
+        if (modeSwitched) headers.push('PONYTAIL MODE CHANGED — level: ' + currentMode);
+        const header = headers.length ? headers.join('\n') + '\n\n' : '';
+        writeHookOutput('UserPromptSubmit', currentMode, header + getPonytailInstructions(currentMode, selectedModel));
       }
     }
   } catch (e) {

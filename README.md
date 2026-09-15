@@ -121,6 +121,19 @@ The ladder runs *after* it understands the problem, not instead of it: it reads 
 
 Lazy, not negligent: trust-boundary validation, data-loss handling, security, and accessibility are never on the chopping block.
 
+## Codex model-adaptive guidance
+
+This fork selects the injected rules from the active model:
+
+- GPT-6 Astra uses a shorter maintainability-first variant.
+- Other and unknown models use the upstream rules.
+- A model change during a thread updates the next prompt automatically.
+- Subagents inherit the selected variant.
+
+The compact variant is deliberately limited to the Astra model family. Add a
+future model only after checking that the shorter guidance is appropriate;
+unknown models stay on the upstream rules until then.
+
 ## Install
 
 The most effort ponytail will ever ask of you:
@@ -145,6 +158,9 @@ Same steps in the Claude Code Desktop app's Code tab: type the two `/plugin` com
 codex plugin marketplace add DietrichGebert/ponytail
 codex plugin add ponytail@ponytail
 ```
+
+For this model-adaptive fork, use `yuuki-ama1015/ponytail-model-adaptive` in
+the marketplace command.
 
 Run `codex` and open `/hooks`, review and trust its two lifecycle hooks, and start a new thread.
 
