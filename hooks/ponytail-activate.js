@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getDefaultMode, getClaudeDir, isShellSafe } = require('./ponytail-config');
-const { getPonytailInstructions, instructionVariant } = require('./ponytail-instructions');
+const { getPonytailInstructions } = require('./ponytail-instructions');
 const {
   clearMode,
   cursorRuleNotice,
@@ -19,16 +19,12 @@ const {
   isCopilot,
   isCursor,
   clearModel,
-  setModel,
   setMode,
   writeHookOutput,
 } = require('./ponytail-runtime');
 
 const claudeDir = getClaudeDir();
 const settingsPath = path.join(claudeDir, 'settings.json');
-let hookData = {};
-try { hookData = JSON.parse(fs.readFileSync(0, 'utf8').replace(/^\uFEFF/, '')); } catch (e) {}
-const model = hookData.model || hookData.model_name || hookData.modelName || null;
 
 const mode = getDefaultMode();
 
@@ -59,13 +55,12 @@ if (isCursor) {
 // 1. Write flag file
 try {
   setMode(mode);
-  if (model) setModel(instructionVariant(model));
 } catch (e) {
   // Silent fail -- flag is best-effort, don't block the hook
 }
 
 // 2. Emit the ponytail ruleset, filtered to the active intensity level.
-let output = getPonytailInstructions(mode, model);
+let output = getPonytailInstructions(mode);
 
 // 3. Detect missing statusline config — nudge Claude to help set it up
 if (!isCodex && !isCopilot && !isCursor) try {

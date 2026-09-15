@@ -106,6 +106,27 @@ test('ponytail-mode-tracker self-exits when stdin never closes (no freeze)', asy
   assert.equal(code, 0, 'hook must exit cleanly when stdin never closes');
 });
 
+test('ponytail-activate does not wait for stdin (no freeze)', async () => {
+  const child = spawn(process.execPath, [path.join(root, 'hooks', 'ponytail-activate.js')], {
+    env: { ...process.env, PONYTAIL_DEFAULT_MODE: 'full' },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const output = await new Promise((resolve, reject) => {
+    let stdout = '';
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error('hook hung on open stdin — it would freeze the session'));
+    }, 1500);
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.on('close', code => {
+      clearTimeout(timer);
+      resolve({ code, stdout });
+    });
+  });
+  assert.equal(output.code, 0, 'hook must exit cleanly with stdin open');
+  assert.match(output.stdout, /PONYTAIL MODE ACTIVE/);
+});
+
 test('Claude and Codex manifests point at the shared host-specific hook config', () => {
   for (const rel of HOST_PLUGIN_MANIFESTS) {
     const manifest = JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8'));
