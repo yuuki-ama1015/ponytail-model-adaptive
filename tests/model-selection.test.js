@@ -7,14 +7,19 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const root = path.join(__dirname, '..');
-const { getPonytailInstructions, instructionVariant, isAstraModel } = require('../hooks/ponytail-instructions');
+const { getPonytailInstructions, instructionVariant, isCompactModel } = require('../hooks/ponytail-instructions');
 
-assert.equal(isAstraModel('gpt-6-astra'), true);
-assert.equal(isAstraModel('gpt-6-astra-high'), true);
-assert.equal(isAstraModel('gpt-5.6-sol'), false);
-assert.equal(instructionVariant('gpt-6-astra'), 'astra');
+for (const model of ['gpt-6-astra', 'gpt-6-astra-high', 'gpt-6.1-sol', 'gpt-6.1-sol-high', 'gpt-6.1-sol:high', 'compact', 'astra']) {
+  assert.equal(isCompactModel(model), true, model);
+  assert.equal(instructionVariant(model), 'compact', model);
+}
+for (const model of ['gpt-5.6-sol', 'gpt-6-sol', 'gpt-6.2-sol', 'gpt-6.1-solstice', 'astra-unknown', '', null]) {
+  assert.equal(isCompactModel(model), false, String(model));
+  assert.equal(instructionVariant(model), 'legacy', String(model));
+}
 assert.equal(instructionVariant('gpt-5.6-sol'), 'legacy');
 assert(getPonytailInstructions('full', 'gpt-6-astra').length < getPonytailInstructions('full', 'gpt-5.6-sol').length);
+assert.equal(getPonytailInstructions('full', 'gpt-6.1-sol'), getPonytailInstructions('full', 'gpt-6-astra'));
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ponytail-model-'));
 process.on('exit', () => fs.rmSync(temp, { recursive: true, force: true }));
@@ -24,11 +29,11 @@ const activate = spawnSync(process.execPath, [path.join(root, 'hooks', 'ponytail
 });
 assert.equal(activate.status, 0, activate.stderr);
 const switched = spawnSync(process.execPath, [path.join(root, 'hooks', 'ponytail-mode-tracker.js')], {
-  env, input: JSON.stringify({ prompt: 'continue', model: 'gpt-6-astra' }), encoding: 'utf8',
+  env, input: JSON.stringify({ prompt: 'continue', model: 'gpt-6.1-sol' }), encoding: 'utf8',
 });
 assert.equal(switched.status, 0, switched.stderr);
 const output = JSON.parse(switched.stdout);
-assert.match(output.hookSpecificOutput.additionalContext, /PONYTAIL MODEL CHANGED — variant: astra/);
+assert.match(output.hookSpecificOutput.additionalContext, /PONYTAIL MODEL CHANGED — variant: compact/);
 assert.match(output.hookSpecificOutput.additionalContext, /simplest maintainable solution/);
 assert.doesNotMatch(output.hookSpecificOutput.additionalContext, /Can it be one line/);
 const modeChanged = spawnSync(process.execPath, [path.join(root, 'hooks', 'ponytail-mode-tracker.js')], {
@@ -38,4 +43,13 @@ assert.equal(modeChanged.status, 0, modeChanged.stderr);
 const modeOutput = JSON.parse(modeChanged.stdout);
 assert.match(modeOutput.hookSpecificOutput.additionalContext, /PONYTAIL MODE CHANGED — level: lite/);
 assert.doesNotMatch(modeOutput.hookSpecificOutput.additionalContext, /Can it be one line/);
-console.log('PASS: Astra and legacy variants switch at startup and mid-session');
+const subagent = spawnSync(process.execPath, [path.join(root, 'hooks', 'ponytail-subagent.js')], { env, encoding: 'utf8' });
+assert.equal(subagent.status, 0, subagent.stderr);
+assert.match(JSON.parse(subagent.stdout).hookSpecificOutput.additionalContext, /simplest maintainable solution/);
+const legacy = spawnSync(process.execPath, [path.join(root, 'hooks', 'ponytail-mode-tracker.js')], {
+  env, input: JSON.stringify({ prompt: 'continue', model: 'gpt-6-sol' }), encoding: 'utf8',
+});
+assert.equal(legacy.status, 0, legacy.stderr);
+assert.match(JSON.parse(legacy.stdout).hookSpecificOutput.additionalContext, /PONYTAIL MODEL CHANGED — variant: legacy/);
+assert.match(JSON.parse(legacy.stdout).hookSpecificOutput.additionalContext, /Can it be one line/);
+console.log('PASS: Astra and GPT-6.1 Sol use compact guidance, preserve it in subagents, and switch back to legacy');

@@ -125,12 +125,12 @@ Lazy, not negligent: trust-boundary validation, data-loss handling, security, an
 
 This fork selects the injected rules from the active model:
 
-- GPT-6 Astra uses a shorter maintainability-first variant.
+- GPT-6 Astra and GPT-6.1 Sol use a shorter maintainability-first variant (`compact`).
 - Other and unknown models use the upstream rules.
 - A model change during a thread updates the next prompt automatically.
 - Subagents inherit the selected variant.
 
-The compact variant is deliberately limited to the Astra model family. Add a
+The compact variant is deliberately limited to GPT-6 Astra and GPT-6.1 Sol. Add a
 future model only after checking that the shorter guidance is appropriate;
 unknown models stay on the upstream rules until then.
 

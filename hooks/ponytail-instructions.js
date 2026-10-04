@@ -7,14 +7,15 @@ const { DEFAULT_MODE, normalizeMode, normalizePersistedMode } = require('./ponyt
 
 const INDEPENDENT_MODES = new Set(['review']);
 const SKILL_PATH = path.join(__dirname, '..', 'skills', 'ponytail', 'SKILL.md');
-const ASTRA_SKILL_PATH = path.join(__dirname, '..', 'skills', 'ponytail', 'references', 'astra.md');
+const COMPACT_SKILL_PATH = path.join(__dirname, '..', 'skills', 'ponytail', 'references', 'compact.md');
 
-function isAstraModel(model) {
-  return typeof model === 'string' && /^(?:astra|gpt-6-astra(?:$|[-:]))/i.test(model.trim());
+function isCompactModel(model) {
+  // Accept the old persisted "astra" variant when upgrading existing sessions.
+  return typeof model === 'string' && /^(?:compact$|astra$|gpt-(?:6-astra|6\.1-sol)(?:$|[-:]))/i.test(model.trim());
 }
 
 function instructionVariant(model) {
-  return isAstraModel(model) ? 'astra' : 'legacy';
+  return isCompactModel(model) ? 'compact' : 'legacy';
 }
 
 function filterSkillBodyForMode(body, mode) {
@@ -91,7 +92,7 @@ function getPonytailInstructions(mode, model) {
   }
 
   const effectiveMode = normalizeMode(configuredMode) || DEFAULT_MODE;
-  const skillPath = isAstraModel(model) ? ASTRA_SKILL_PATH : SKILL_PATH;
+  const skillPath = isCompactModel(model) ? COMPACT_SKILL_PATH : SKILL_PATH;
 
   try {
     return 'PONYTAIL MODE ACTIVE — level: ' + effectiveMode + '\n\n' +
@@ -106,5 +107,5 @@ module.exports = {
   getFallbackInstructions,
   getPonytailInstructions,
   instructionVariant,
-  isAstraModel,
+  isCompactModel,
 };
